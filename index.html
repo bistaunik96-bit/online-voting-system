@@ -1,192 +1,129 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pro Voting System</title>
+    <title>Live Voting Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
-
-    <!-- Firebase Scripts -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
-
     <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
         body {
             font-family: 'Poppins', sans-serif;
             height: 100vh;
-            margin: 0;
-
-            /* Parliament background with overlay */
-            background:
-                linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)),
-                url('https://upload.wikimedia.org/wikipedia/commons/6/6e/Nepal_Parliament_Building.jpg');
-
-            background-size: cover;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex; justify-content: center; align-items: center;
         }
-
-        .box {
-            background: rgba(255,255,255,0.1);
-            padding: 25px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            width: 400px;
-            text-align: center;
+        .container {
+            backdrop-filter: blur(15px);
+            background: rgba(255,255,255,0.15);
+            padding:30px;
+            border-radius:20px;
+            width:420px;
+            color:white;
+            box-shadow:0 10px 30px rgba(0,0,0,0.3);
+            animation:fadeIn 1s ease;
         }
-
-        input {
-            width: 90%;
-            padding: 10px;
-            margin: 10px;
-            border-radius: 8px;
-            border: none;
-        }
-
+        @keyframes fadeIn { from {opacity:0; transform:translateY(20px);} to {opacity:1; transform:translateY(0);} }
+        h1 { text-align:center; margin-bottom:20px; font-weight:700; }
+        .candidate { margin:15px 0; position:relative; }
+        label { cursor:pointer; }
+        input[type="radio"] { margin-right:8px; transform:scale(1.2); }
+        .bar { height:12px; background: rgba(255,255,255,0.2); border-radius:12px; margin-top:6px; overflow:hidden; }
+        .fill { height:100%; width:0%; border-radius:12px; transition: width 0.6s ease-in-out; }
+        .stats { font-size:13px; margin-top:3px; }
         button {
-            padding: 10px;
-            width: 95%;
-            border: none;
-            border-radius: 8px;
-            background: #00c6ff;
-            color: white;
-            cursor: pointer;
-            margin-top: 10px;
+            width:100%; padding:12px; border:none; border-radius:10px; margin-top:10px;
+            font-size:15px; cursor:pointer; transition:0.3s;
         }
-
-        .bar {
-            height: 10px;
-            background: rgba(255,255,255,0.2);
-            margin-top: 5px;
-            border-radius: 5px;
-        }
-
-        .fill {
-            height: 100%;
-            width: 0%;
-            background: #00c6ff;
-        }
+        #voteBtn { background: linear-gradient(to right,#00c6ff,#0072ff); color:white; }
+        #voteBtn:hover { transform:scale(1.05); }
+        #resetBtn { background: rgba(255,255,255,0.2); color:white; }
+        #resetBtn:hover { background: rgba(255,255,255,0.3); }
+        #result { margin-top:15px; text-align:center; font-weight:bold; font-size:16px; }
+        .winner { text-shadow: 0 0 10px gold,0 0 20px gold; color:#ffd700; }
     </style>
 </head>
-
 <body>
-
-<!-- Step 1: Login Interface -->
-<div class="box" id="loginBox">
-    <h2>Login</h2>
-    <input type="text" id="username" placeholder="Enter username">
-    <button onclick="login()">Login</button>
-</div>
-
-<!-- Step 2: Voting Interface -->
-<div class="box" id="voteBox" style="display:none;">
-    <h2>🗳 Vote</h2>
-
-    <label><input type="radio" name="vote"> Balen Shah</label>
-    <div class="bar"><div id="b1" class="fill"></div></div>
-
-    <label><input type="radio" name="vote"> KP Oli</label>
-    <div class="bar"><div id="b2" class="fill"></div></div>
-
-    <label><input type="radio" name="vote"> Prachanda</label>
-    <div class="bar"><div id="b3" class="fill"></div></div>
-
-    <button onclick="vote()">Submit Vote</button>
-    <p id="msg"></p>
+<div class="container">
+    <h1>🗳 Live Voting Dashboard</h1>
+    <div id="candidatesContainer"></div>
+    <button id="voteBtn" onclick="vote()">🚀 Submit Vote</button>
+    <button id="resetBtn" onclick="resetVotes()">♻ Reset</button>
+    <div id="result"></div>
 </div>
 
 <script>
+    const candidates = ["Balen Shah","KP Oli","Prachanda","Ramesh","Sita"];
+    const colors = ["#ff6b6b","#4ecdc4","#ffe66d","#ff9f1c","#9b5de5","#00bbf9"];
 
-const firebaseConfig = {
-    apiKey: "YOUR_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-    projectId: "YOUR_PROJECT",
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+    const container = document.getElementById("candidatesContainer");
 
-let user = "";
-
-
-function login(){
-    user = document.getElementById("username").value;
-
-    if(user==""){
-        alert("Enter username");
-        return;
-    }
-
-    
-    localStorage.setItem("user", user);
-
-    document.getElementById("loginBox").style.display="none";
-    document.getElementById("voteBox").style.display="block";
-
-    
-    checkVote();
-}
-
-
-function checkVote(){
-    db.ref("users/"+user).once("value", snap=>{
-        if(snap.exists()){
-            document.getElementById("msg").innerHTML="❌ You already voted!";
-        }
+    candidates.forEach((name,i)=>{
+        const div = document.createElement("div");
+        div.className="candidate";
+        div.innerHTML=`
+            <label><input type="radio" name="vote"> ${name}</label>
+            <div class="bar"><div id="bar${i}" class="fill" style="background:${colors[i%colors.length]}"></div></div>
+            <div id="count${i}" class="stats">0 votes (0%)</div>
+        `;
+        container.appendChild(div);
     });
-}
 
-/* ===================================
-    🔹 Vote Function
-   =================================== */
-function vote(){
-    let radios=document.getElementsByName("vote");
-    let index=-1;
+    function getVotes(){ return JSON.parse(localStorage.getItem("votes")) || new Array(candidates.length).fill(0); }
+    function saveVotes(v){ localStorage.setItem("votes",JSON.stringify(v)); }
 
-    for(let i=0;i<radios.length;i++){
-        if(radios[i].checked) index=i;
-    }
+    function updateUI(){
+        let v = getVotes();
+        let total = v.reduce((a,b)=>a+b,0);
+        let max = Math.max(...v);
+        let winnerIndex = v.indexOf(max);
 
-    if(index==-1){
-        document.getElementById("msg").innerHTML="⚠ Select a candidate!";
-        return;
-    }
+        candidates.forEach((_,i)=>{
+            let percent = total===0?0:(v[i]/total)*100;
+            document.getElementById(bar${i}).style.width=percent+"%";
 
-    // Step 4: Check Firebase if user voted
-    db.ref("users/"+user).once("value", snap=>{
-        if(snap.exists()){
-            document.getElementById("msg").innerHTML="❌ Already voted!";
-        } else {
+            // Animate count increment
+            const countElem=document.getElementById(count${i});
+            let current=parseInt(countElem.dataset.current||0);
+            const target=v[i];
+            if(current<target){
+                const step=Math.ceil((target-current)/5);
+                countElem.dataset.current=Math.min(current+step,target);
+            }
+            countElem.innerHTML=${countElem.dataset.current} votes (${percent.toFixed(1)}%);
+        });
 
-            // Step 5: Increment candidate vote in global array
-            db.ref("votes").transaction(v=>{
-                if(v==null) v=[0,0,0];
-                v[index]++;
-                return v;
-            });
-
-            // Step 6: Save that this user voted
-            db.ref("users/"+user).set(true);
-            document.getElementById("msg").innerHTML="✅ Vote submitted!";
+        if(total>0){
+            document.getElementById("result").innerHTML=
+                🏆 Leading: <span class="winner">${candidates[winnerIndex]}</span>;
         }
-    });
-}
-
-/* ===================================
-    🔹 Live Vote Result
-   =================================== */
-db.ref("votes").on("value", snap=>{
-    let v=snap.val()||[0,0,0];
-    let total=v.reduce((a,b)=>a+b,0);
-
-    for(let i=0;i<3;i++){
-        let p= total==0?0:(v[i]/total)*100;
-        document.getElementById("b"+(i+1)).style.width=p+"%";
+        requestAnimationFrame(updateUI); // continuously update UI for live effect
     }
-});
 
+    function vote(){
+        if(localStorage.getItem("voted")==="true"){
+            document.getElementById("result").innerHTML="❌ You already voted!";
+            return;
+        }
+        const radios=document.getElementsByName("vote");
+        let index=-1;
+        for(let i=0;i<radios.length;i++){ if(radios[i].checked) index=i; }
+        if(index===-1){ document.getElementById("result").innerHTML="⚠ Select a candidate!"; return; }
 
+        let v=getVotes();
+        v[index]++;
+        saveVotes(v);
+        localStorage.setItem("voted","true");
+        document.getElementById("voteBtn").disabled=true;
+    }
+
+    function resetVotes(){
+        localStorage.clear();
+        location.reload();
+    }
+
+    window.onload=function(){
+        if(localStorage.getItem("voted")==="true"){ document.getElementById("voteBtn").disabled=true; }
+        updateUI(); // start live UI loop
+    }
 </script>
-
 </body>
 </html>
