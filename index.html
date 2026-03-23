@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Online Voting System</title>
+    <title>Dynamic Voting System</title>
 
-    <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
@@ -18,7 +17,7 @@
             background: white;
             padding: 30px;
             border-radius: 15px;
-            width: 400px;
+            width: 420px;
             margin: auto;
             box-shadow: 0 8px 20px rgba(0,0,0,0.2);
         }
@@ -28,8 +27,23 @@
         }
 
         .candidate {
-            margin: 15px 0;
+            margin: 10px 0;
             font-size: 18px;
+            text-align: left;
+        }
+
+        .bar {
+            height: 10px;
+            background: #ddd;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+
+        .fill {
+            height: 10px;
+            background: #4facfe;
+            border-radius: 5px;
+            width: 0%;
         }
 
         button {
@@ -39,7 +53,6 @@
             padding: 10px 20px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
             margin-top: 10px;
         }
 
@@ -48,14 +61,14 @@
         }
 
         #result {
-            margin-top: 20px;
+            margin-top: 15px;
             font-weight: bold;
             color: green;
         }
 
-        .disabled {
-            background: gray !important;
-            cursor: not-allowed;
+        .winner {
+            color: red;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -67,70 +80,112 @@
 
     <div class="candidate">
         <input type="radio" name="vote" value="Balen Shah"> Balen Shah
+        <div class="bar"><div id="bar1" class="fill"></div></div>
+        <span id="count1"></span>
     </div>
 
     <div class="candidate">
-        <input type="radio" name="vote" value="Kp oli sharma"> Kp oli sharma
+        <input type="radio" name="vote" value="KP Oli"> KP Oli
+        <div class="bar"><div id="bar2" class="fill"></div></div>
+        <span id="count2"></span>
     </div>
 
     <div class="candidate">
-        <input type="radio" name="vote" value="Pushpa Kamal Dahal"> Pushpa Kamal Dahal
+        <input type="radio" name="vote" value="Prachanda"> Prachanda
+        <div class="bar"><div id="bar3" class="fill"></div></div>
+        <span id="count3"></span>
     </div>
 
     <button id="voteBtn" onclick="vote()">Vote</button>
+    <button onclick="resetVotes()">Reset</button>
 
     <div id="result"></div>
 </div>
 
 <script>
-    // Run when page loads
-    window.onload = function () {
-        let voted = localStorage.getItem("voted");
-        let candidate = localStorage.getItem("votedCandidate");
+    let candidates = ["Balen Shah", "KP Oli", "Prachanda"];
 
-        if (voted === "true") {
-            document.getElementById("result").innerHTML =
-                "You have already voted for " + candidate;
-
-            // Disable button
-            document.getElementById("voteBtn").disabled = true;
-            document.getElementById("voteBtn").classList.add("disabled");
+    function getVotes() {
+        let votes = JSON.parse(localStorage.getItem("votes"));
+        if (!votes) {
+            votes = [0, 0, 0];
         }
-    };
+        return votes;
+    }
+
+    function saveVotes(votes) {
+        localStorage.setItem("votes", JSON.stringify(votes));
+    }
+
+    function updateUI() {
+        let votes = getVotes();
+        let total = votes.reduce((a, b) => a + b, 0);
+
+        for (let i = 0; i < votes.length; i++) {
+            let percent = total === 0 ? 0 : (votes[i] / total) * 100;
+
+            document.getElementById("count" + (i+1)).innerHTML =
+                votes[i] + " votes (" + percent.toFixed(1) + "%)";
+
+            document.getElementById("bar" + (i+1)).style.width =
+                percent + "%";
+        }
+
+        // Highlight winner
+        let max = Math.max(...votes);
+        let winnerIndex = votes.indexOf(max);
+
+        if (total > 0) {
+            document.getElementById("result").innerHTML =
+                "🏆 Leading: " + candidates[winnerIndex];
+        }
+    }
 
     function vote() {
-        // Prevent multiple voting
         if (localStorage.getItem("voted") === "true") {
             document.getElementById("result").innerHTML =
-                "You have already voted!";
+                "You already voted!";
             return;
         }
 
-        let candidates = document.getElementsByName("vote");
-        let selected = "";
+        let options = document.getElementsByName("vote");
+        let selectedIndex = -1;
 
-        for (let i = 0; i < candidates.length; i++) {
-            if (candidates[i].checked) {
-                selected = candidates[i].value;
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].checked) {
+                selectedIndex = i;
             }
         }
 
-        if (selected === "") {
+        if (selectedIndex === -1) {
             document.getElementById("result").innerHTML =
-                "Please select a candidate!";
-        } else {
-            document.getElementById("result").innerHTML =
-                "You voted for " + selected;
-
-            // Save vote in browser
-            localStorage.setItem("voted", "true");
-            localStorage.setItem("votedCandidate", selected);
-
-            // Disable button after voting
-            document.getElementById("voteBtn").disabled = true;
-            document.getElementById("voteBtn").classList.add("disabled");
+                "Select a candidate!";
+            return;
         }
+
+        let votes = getVotes();
+        votes[selectedIndex]++;
+        saveVotes(votes);
+
+        localStorage.setItem("voted", "true");
+
+        document.getElementById("voteBtn").disabled = true;
+
+        updateUI();
     }
+
+    function resetVotes() {
+        localStorage.clear();
+        location.reload();
+    }
+
+    window.onload = function () {
+        updateUI();
+
+        if (localStorage.getItem("voted") === "true") {
+            document.getElementById("voteBtn").disabled = true;
+        }
+    };
 </script>
 
 </body>
