@@ -1,229 +1,173 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Advanced Voting System</title>
-
+    <title>Pro Voting System</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
 
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
 
+    <style>
         body {
             font-family: 'Poppins', sans-serif;
             height: 100vh;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            margin: 0;
+
+            background:
+                linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)),
+                url('https://upload.wikimedia.org/wikipedia/commons/6/6e/Nepal_Parliament_Building.jpg');
+
+            background-size: cover;
             display: flex;
             justify-content: center;
             align-items: center;
-        }
-
-        .container {
-            backdrop-filter: blur(15px);
-            background: rgba(255, 255, 255, 0.15);
-            padding: 30px;
-            border-radius: 20px;
-            width: 420px;
             color: white;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            animation: fadeIn 1s ease;
         }
 
-        @keyframes fadeIn {
-            from {opacity: 0; transform: translateY(20px);}
-            to {opacity: 1; transform: translateY(0);}
-        }
-
-        h1 {
+        .box {
+            background: rgba(255,255,255,0.1);
+            padding: 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            width: 400px;
             text-align: center;
-            margin-bottom: 20px;
-            font-weight: 700;
         }
 
-        .candidate {
-            margin: 15px 0;
+        input {
+            width: 90%;
+            padding: 10px;
+            margin: 10px;
+            border-radius: 8px;
+            border: none;
         }
 
-        label {
+        button {
+            padding: 10px;
+            width: 95%;
+            border: none;
+            border-radius: 8px;
+            background: #00c6ff;
+            color: white;
             cursor: pointer;
-        }
-
-        input[type="radio"] {
-            margin-right: 8px;
-            transform: scale(1.2);
+            margin-top: 10px;
         }
 
         .bar {
             height: 10px;
             background: rgba(255,255,255,0.2);
-            border-radius: 10px;
-            margin-top: 6px;
-            overflow: hidden;
+            margin-top: 5px;
+            border-radius: 5px;
         }
 
         .fill {
             height: 100%;
             width: 0%;
-            border-radius: 10px;
-            transition: width 0.6s ease-in-out;
-        }
-
-        .fill1 { background: #ff6b6b; }
-        .fill2 { background: #4ecdc4; }
-        .fill3 { background: #ffe66d; }
-
-        .stats {
-            font-size: 13px;
-            margin-top: 3px;
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 10px;
-            margin-top: 10px;
-            font-size: 15px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-
-        #voteBtn {
-            background: linear-gradient(to right, #00c6ff, #0072ff);
-            color: white;
-        }
-
-        #voteBtn:hover {
-            transform: scale(1.05);
-        }
-
-        #resetBtn {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-
-        #resetBtn:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        #result {
-            margin-top: 15px;
-            text-align: center;
-            font-weight: bold;
-        }
-
-        .winner {
-            text-shadow: 0 0 10px gold, 0 0 20px gold;
-            color: #ffd700;
+            background: #00c6ff;
         }
     </style>
 </head>
 
 <body>
 
-<div class="container">
-    <h1>🗳 Voting System</h1>
+<div class="box" id="loginBox">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Enter username">
+    <button onclick="login()">Login</button>
+</div>
 
-    <div class="candidate">
-        <label><input type="radio" name="vote"> Balen Shah</label>
-        <div class="bar"><div id="bar1" class="fill fill1"></div></div>
-        <div id="count1" class="stats"></div>
-    </div>
+<div class="box" id="voteBox" style="display:none;">
+    <h2>🗳 Vote</h2>
 
-    <div class="candidate">
-        <label><input type="radio" name="vote"> KP Oli</label>
-        <div class="bar"><div id="bar2" class="fill fill2"></div></div>
-        <div id="count2" class="stats"></div>
-    </div>
+    <label><input type="radio" name="vote"> Balen Shah</label>
+    <div class="bar"><div id="b1" class="fill"></div></div>
 
-    <div class="candidate">
-        <label><input type="radio" name="vote"> Prachanda</label>
-        <div class="bar"><div id="bar3" class="fill fill3"></div></div>
-        <div id="count3" class="stats"></div>
-    </div>
+    <label><input type="radio" name="vote"> KP Oli</label>
+    <div class="bar"><div id="b2" class="fill"></div></div>
 
-    <button id="voteBtn" onclick="vote()">🚀 Submit Vote</button>
-    <button id="resetBtn" onclick="resetVotes()">♻ Reset</button>
+    <label><input type="radio" name="vote"> Prachanda</label>
+    <div class="bar"><div id="b3" class="fill"></div></div>
 
-    <div id="result"></div>
+    <button onclick="vote()">Submit Vote</button>
+    <p id="msg"></p>
 </div>
 
 <script>
-    let names = ["Balen Shah", "KP Oli", "Prachanda"];
+const firebaseConfig = {
+    apiKey: "YOUR_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+    projectId: "YOUR_PROJECT",
+};
 
-    function getVotes() {
-        return JSON.parse(localStorage.getItem("votes")) || [0,0,0];
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let user = "";
+
+function login(){
+    user = document.getElementById("username").value;
+
+    if(user==""){
+        alert("Enter username");
+        return;
     }
 
-    function saveVotes(v) {
-        localStorage.setItem("votes", JSON.stringify(v));
+    localStorage.setItem("user", user);
+
+    document.getElementById("loginBox").style.display="none";
+    document.getElementById("voteBox").style.display="block";
+
+    checkVote();
+}
+
+function checkVote(){
+    db.ref("users/"+user).once("value", snap=>{
+        if(snap.exists()){
+            document.getElementById("msg").innerHTML="❌ You already voted!";
+        }
+    });
+}
+
+function vote(){
+    let radios=document.getElementsByName("vote");
+    let index=-1;
+
+    for(let i=0;i<radios.length;i++){
+        if(radios[i].checked) index=i;
     }
 
-    function updateUI() {
-        let v = getVotes();
-        let total = v.reduce((a,b)=>a+b,0);
-
-        for (let i=0;i<3;i++) {
-            let percent = total===0 ? 0 : (v[i]/total)*100;
-
-            document.getElementById("bar"+(i+1)).style.width = percent+"%";
-            document.getElementById("count"+(i+1)).innerHTML =
-                `${v[i]} votes (${percent.toFixed(1)}%)`;
-        }
-
-        let max = Math.max(...v);
-        let winner = names[v.indexOf(max)];
-
-        if(total>0){
-            document.getElementById("result").innerHTML =
-                `🏆 Leading: <span class="winner">${winner}</span>`;
-        }
+    if(index==-1){
+        document.getElementById("msg").innerHTML="Select a candidate!";
+        return;
     }
 
-    function vote() {
-        if(localStorage.getItem("voted")==="true"){
-            document.getElementById("result").innerHTML = "❌ You already voted!";
-            return;
+    db.ref("users/"+user).once("value", snap=>{
+        if(snap.exists()){
+            document.getElementById("msg").innerHTML="❌ Already voted!";
+        } else {
+
+            db.ref("votes").transaction(v=>{
+                if(v==null) v=[0,0,0];
+                v[index]++;
+                return v;
+            });
+
+            db.ref("users/"+user).set(true);
+            document.getElementById("msg").innerHTML="✅ Vote submitted!";
         }
+    });
+}
 
-        let radios = document.getElementsByName("vote");
-        let index = -1;
+// LIVE RESULT
+db.ref("votes").on("value", snap=>{
+    let v=snap.val()||[0,0,0];
+    let total=v.reduce((a,b)=>a+b,0);
 
-        for(let i=0;i<radios.length;i++){
-            if(radios[i].checked) index=i;
-        }
-
-        if(index===-1){
-            document.getElementById("result").innerHTML = "⚠ Select a candidate!";
-            return;
-        }
-
-        let v = getVotes();
-        v[index]++;
-        saveVotes(v);
-
-        localStorage.setItem("voted","true");
-
-        document.getElementById("voteBtn").disabled = true;
-
-        updateUI();
+    for(let i=0;i<3;i++){
+        let p= total==0?0:(v[i]/total)*100;
+        document.getElementById("b"+(i+1)).style.width=p+"%";
     }
-
-    function resetVotes(){
-        localStorage.clear();
-        location.reload();
-    }
-
-    window.onload = function(){
-        updateUI();
-
-        if(localStorage.getItem("voted")==="true"){
-            document.getElementById("voteBtn").disabled = true;
-        }
-    }
+});
 </script>
 
 </body>
