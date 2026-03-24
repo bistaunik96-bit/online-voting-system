@@ -35,18 +35,18 @@
         }
         #voteBtn { background: linear-gradient(to right,#00c6ff,#0072ff); color:white; }
         #voteBtn:hover { transform:scale(1.05); }
-        #resetBtn { background: rgba(255,255,255,0.2); color:white; }
-        #resetBtn:hover { background: rgba(255,255,255,0.3); }
+        #voteBtn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
         #result { margin-top:15px; text-align:center; font-weight:bold; font-size:16px; }
         .winner { text-shadow: 0 0 10px gold,0 0 20px gold; color:#ffd700; }
+        #status { text-align:center; font-size:12px; margin-bottom:10px; opacity:0.8; }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>🗳 Live Voting Dashboard</h1>
+    <div id="status">Connecting...</div>
     <div id="candidatesContainer"></div>
     <button id="voteBtn" onclick="vote()">🚀 Submit Vote</button>
-    <button id="resetBtn" onclick="resetVotes()">♻ Reset</button>
     <div id="result"></div>
 </div>
 
@@ -55,75 +55,90 @@
     const colors = ["#ff6b6b","#4ecdc4","#ffe66d","#ff9f1c","#9b5de5","#00bbf9"];
 
     const container = document.getElementById("candidatesContainer");
+    const statusEl = document.getElementById("status");
+    let ws;
+    let hasVoted = false;
 
     candidates.forEach((name,i)=>{
         const div = document.createElement("div");
         div.className="candidate";
         div.innerHTML=`
-            <label><input type="radio" name="vote"> ${name}</label>
+            <label><input type="radio" name="vote" value="${i}"> ${name}</label>
             <div class="bar"><div id="bar${i}" class="fill" style="background:${colors[i%colors.length]}"></div></div>
             <div id="count${i}" class="stats">0 votes (0%)</div>
         `;
         container.appendChild(div);
     });
 
-    function getVotes(){ return JSON.parse(localStorage.getItem("votes")) || new Array(candidates.length).fill(0); }
-    function saveVotes(v){ localStorage.setItem("votes",JSON.stringify(v)); }
-
-    function updateUI(){
-        let v = getVotes();
-        let total = v.reduce((a,b)=>a+b,0);
-        let max = Math.max(...v);
-        let winnerIndex = v.indexOf(max);
+    function updateUI(votes){
+        let total = votes.reduce((a,b)=>a+b,0);
+        let max = Math.max(...votes);
+        let winnerIndex = votes.indexOf(max);
 
         candidates.forEach((_,i)=>{
-            let percent = total===0?0:(v[i]/total)*100;
-            document.getElementById(bar${i}).style.width=percent+"%";
-
-            // Animate count increment
-            const countElem=document.getElementById(count${i});
-            let current=parseInt(countElem.dataset.current||0);
-            const target=v[i];
-            if(current<target){
-                const step=Math.ceil((target-current)/5);
-                countElem.dataset.current=Math.min(current+step,target);
-            }
-            countElem.innerHTML=${countElem.dataset.current} votes (${percent.toFixed(1)}%);
+            let percent = total===0?0:(votes[i]/total)*100;
+            document.getElementById("bar"+i).style.width=percent+"%";
+            document.getElementById("count"+i).innerHTML=votes[i]+" votes ("+percent.toFixed(1)+"%)";
         });
 
         if(total>0){
             document.getElementById("result").innerHTML=
-                🏆 Leading: <span class="winner">${candidates[winnerIndex]}</span>;
+                "🏆 Leading: <span class=\"winner\">"+candidates[winnerIndex]+"</span>";
+        } else {
+            document.getElementById("result").innerHTML="";
         }
-        requestAnimationFrame(updateUI); // continuously update UI for live effect
+    }
+
+    function connect(){
+        ws = new WebSocket("wss://online-voting-system-dwhb.onrender.com/ws");
+
+        ws.onopen = function(){
+            statusEl.textContent = "🟢 Connected";
+        };
+
+        ws.onmessage = function(event){
+            const msg = JSON.parse(event.data);
+            if(msg.type === "votes"){
+                updateUI(msg.data);
+            } else if(msg.type === "error"){
+                document.getElementById("result").innerHTML="❌ "+msg.message;
+                hasVoted = true;
+                document.getElementById("voteBtn").disabled=true;
+                disableRadios();
+            }
+        };
+
+        ws.onclose = function(){
+            statusEl.textContent = "🔴 Disconnected — reconnecting...";
+            setTimeout(connect, 2000);
+        };
+
+        ws.onerror = function(){
+            statusEl.textContent = "🔴 Connection error";
+        };
+    }
+
+    function disableRadios(){
+        document.querySelectorAll('input[name="vote"]').forEach(r=>r.disabled=true);
     }
 
     function vote(){
-        if(localStorage.getItem("voted")==="true"){
+        if(hasVoted){
             document.getElementById("result").innerHTML="❌ You already voted!";
             return;
         }
-        const radios=document.getElementsByName("vote");
-        let index=-1;
+        const radios = document.getElementsByName("vote");
+        let index = -1;
         for(let i=0;i<radios.length;i++){ if(radios[i].checked) index=i; }
         if(index===-1){ document.getElementById("result").innerHTML="⚠ Select a candidate!"; return; }
 
-        let v=getVotes();
-        v[index]++;
-        saveVotes(v);
-        localStorage.setItem("voted","true");
+        ws.send(JSON.stringify({"type":"vote","candidate":index}));
+        hasVoted = true;
         document.getElementById("voteBtn").disabled=true;
+        disableRadios();
     }
 
-    function resetVotes(){
-        localStorage.clear();
-        location.reload();
-    }
-
-    window.onload=function(){
-        if(localStorage.getItem("voted")==="true"){ document.getElementById("voteBtn").disabled=true; }
-        updateUI(); // start live UI loop
-    }
+    connect();
 </script>
 </body>
 </html>
